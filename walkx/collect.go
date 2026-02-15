@@ -6,6 +6,7 @@ import (
     "os"
     "path/filepath"
     "strings"
+    "errors"
 )
 
 // 符号链接不是常规文件,也不是目录
@@ -321,11 +322,6 @@ func ReadDirExt(root string, exts []string) ([]ReadDirItemExt, error) {
     return results, nil
 }
 
-type WalkDirExtItem struct {
-    Name     string `json:"name"`
-    FullPath string `json:"fullpath"`
-}
-
 // 递归
 // 包含隐藏
 // 不解析符号链接
@@ -333,29 +329,29 @@ type WalkDirExtItem struct {
 // 参数:
 // root:根目录
 // exts:允许的文件扩展名(不区分大小写,如:[]string{".jpg",".png"})(扩展名可以不带.)
+// fn:用户回调函数
 // 返回值:
-// 切片,元素类型为WalkDirItemExt
 // 错误
-func WalkDirExt(root string, exts []string) ([]WalkDirExtItem, error) {
+func WalkDirExt(root string, exts []string, fn func(path string, info fs.FileInfo) error,) error {
     if len(exts) == 0 {
-        return nil, fmt.Errorf("extensions list cannot be empty")
+        return errors.New("extensions list cannot be empty")
     }
 
     root, err := filepath.Abs(root)
     if err != nil {
-        return nil, err
+        return err
     }
 
     info, err := os.Stat(root)
     if err != nil {
-        return nil, err
+        return err
     }
     if !info.IsDir() {
-        return nil, fmt.Errorf("not a directory: %s", root)
+        return errors.New("not a directory")
     }
 
     // 预处理扩展名
-    extSet := make(map[string]struct{}, len(exts))
+    extSet := make(map[string]struct{})
     for _, e := range exts {
         e = strings.ToLower(e)
         if !strings.HasPrefix(e, ".") {
@@ -364,11 +360,10 @@ func WalkDirExt(root string, exts []string) ([]WalkDirExtItem, error) {
         extSet[e] = struct{}{}
     }
 
-    var results []WalkDirExtItem
-
-    err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+    // 这里的path就已经是绝对路径了
+    return filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
         if walkErr != nil {
-            return walkErr
+            return err
         }
 
         // 跳过根目录自身
@@ -392,19 +387,15 @@ func WalkDirExt(root string, exts []string) ([]WalkDirExtItem, error) {
             return nil
         }
 
-        results = append(results, WalkDirExtItem{
-            Name:     d.Name(),
-            FullPath: path,
-        })
+        // 获取完整文件信息
+        info, err := d.Info()
+        if err != nil {
+            return err
+        }
 
-        return nil
+        // 注意:对于每一个走到这里的文件,调用一次回调函数,n个文件,就会调用n次该回调函数
+        return fn(path, info)
     })
-
-    if err != nil {
-        return nil, err
-    }
-
-    return results, nil
 }
 
 type WalkDirExtFollowSymlinksItem struct {
