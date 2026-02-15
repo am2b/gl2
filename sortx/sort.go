@@ -1,4 +1,4 @@
-package sort
+package sortx
 
 import (
     "golang.org/x/text/collate"
