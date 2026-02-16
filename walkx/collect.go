@@ -363,7 +363,7 @@ func WalkDirExt(root string, exts []string, fn func(path string, info fs.FileInf
     // 这里的path就已经是绝对路径了
     return filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
         if walkErr != nil {
-            return err
+            return walkErr
         }
 
         // 跳过根目录自身
