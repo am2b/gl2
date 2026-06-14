@@ -1,9 +1,9 @@
 package errorx
 
 import (
+    "errors"
     "fmt"
     "os"
-    "errors"
 )
 
 // 包装错误
@@ -27,3 +27,6 @@ func Fatal(err error) {
     fmt.Fprintln(os.Stderr, err)
     os.Exit(1)
 }
+
+// 底层:只负责构造错误
+// 顶层:决定如何展示错误
